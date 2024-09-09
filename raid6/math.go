@@ -188,9 +188,8 @@ func (rm *RAIDMath) RecoverQParity(dataBlocks [][]byte, qParity []byte) {
 	}
 }
 
-// MULTIPLE BLOCK FAILURE RECOVERY
+// ==== MULTIPLE BLOCK FAILURE RECOVERY ====
 
-// Recover two lost blocks using P and Q parities
 // Recover two lost blocks using P and Q parities
 func (rm *RAIDMath) RecoverTwoDataBlocks(dataBlocks [][]byte, pParity, qParity []byte, missingIndex1, missingIndex2 int) {
 	blockSize := len(pParity)
