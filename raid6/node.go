@@ -4,7 +4,8 @@ type BlockType int
 
 const (
     Normal BlockType = iota
-    Parity
+    pParity
+	qParity
 )
 
 type Block struct {
@@ -18,6 +19,7 @@ type Block struct {
 type Node struct {
     NodeID    int
     BlockList []*Block
+	status bool // true for active, false for inactive(failure)
 }
 
 func InitBlock(blockID int, fileName string, data []byte, blockType BlockType) *Block {
@@ -34,9 +36,14 @@ func InitNode(nodeID int) *Node {
     return &Node{
         NodeID:    nodeID,
         BlockList: []*Block{},
+		status: true,
     }
 }
 
 func (n *Node) AddBlock(block *Block) {
     n.BlockList = append(n.BlockList, block)
+}
+
+func (n *Node) GE(){ // 寄
+	n.status = false
 }

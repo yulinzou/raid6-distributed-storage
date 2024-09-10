@@ -8,15 +8,19 @@ import (
 type RAID6 struct {
 	Nodes []*Node
 	Math  *RAIDMath
+	FileNum int
 }
 
 func InitRAID6() *RAID6 {
 	raid := &RAID6{
 		Nodes: make([]*Node, 8), // 6 data nodes, 2 parity nodes
+		Math: NewRAIDMath(2),   // Generator 2 for GF(2^8)
+		FileNum: 0, // no file at the beginning
 	}
 	for i := 0; i < 8; i++ {
 		raid.Nodes[i] = InitNode(i)
 	}
+	
 	return raid
 }
 
@@ -44,20 +48,42 @@ func (r *RAID6) WriteFile(fileName string, data []byte) error {
 	return nil
 }
 
+
+// Get data blocks from nodes 
+func (r *RAID6) GetDataBlocks(Index int) (dataBlocks []*[]byte, P *[]byte, Q *[]byte){
+	dataBlocks = make([]*[]byte, 6)
+	j := 0
+	for i := 0; i < 8; i++ {
+		// fetch the no.Index file data blocks 
+		if r.Nodes[i].BlockList[Index].Type == Normal {
+			dataBlocks[j] = &r.Nodes[i].BlockList[0].Data
+		} 
+		if r.Nodes[i].BlockList[Index].Type == pParity {
+			P = &r.Nodes[i].BlockList[0].Data
+		}
+		if r.Nodes[i].BlockList[Index].Type == qParity {
+			Q = &r.Nodes[i].BlockList[0].Data
+		}
+		j++
+		
+	}
+	return dataBlocks, P, Q
+}
+
+
 // calculateParity generates the parity blocks based on the data nodes.
 func (r *RAID6) calculateParity(fileName string) {
-	parity1 := make([]byte, len(r.Nodes[0].BlockList[0].Data))
-	parity2 := make([]byte, len(r.Nodes[0].BlockList[0].Data))
+	// parity1 := make([]byte, len(r.Nodes[0].BlockList[0].Data))
+	// parity2 := make([]byte, len(r.Nodes[0].BlockList[0].Data))
 
-	for i := 0; i < len(r.Nodes[0].BlockList[0].Data); i++ {
-		// calculate parity by math algorithms
-		// parity1[i] = r.Math ...
-		// parity2[i] = r.Math ...
-	}
+	// should be revised to match the filename
+	blockSize := r.Nodes[0].BlockList[0].Size
+	dataBlocks, _, _ := r.GetDataBlocks(0)
+	parity1, parity2 := r.Math.CalculateParity(dataBlocks, blockSize)
 
 	// Store parity blocks
-	r.Nodes[6].AddBlock(InitBlock(6, fileName, parity1, Parity))
-	r.Nodes[7].AddBlock(InitBlock(7, fileName, parity2, Parity))
+	r.Nodes[6].AddBlock(InitBlock(6, fileName, parity1, pParity))
+	r.Nodes[7].AddBlock(InitBlock(7, fileName, parity2, qParity))
 }
 
 // CheckCorruption verifies if the data blocks or parity are corrupted.
@@ -81,6 +107,33 @@ func (r *RAID6) CheckCorruption() bool {
 	}
 
 	return false // No corruption
+}
+
+
+// Simulate single node's failure
+func (r *RAID6) NodeFailure(nodeID int) {
+	r.Nodes[nodeID].GE()
+}
+
+// Simulate two nodes' failure
+func (r *RAID6) TwoNodesFailure(nodeID1, nodeID2 int) {
+	r.Nodes[nodeID1].GE()
+	r.Nodes[nodeID2].GE()
+}
+
+// My recovery function
+func (r *RAID6) RecoverSingleNode(nodeID int) {
+	for i := 0; i < r.FileNum; i++ {
+		// to be revised ...
+		dataBlocks, P, Q := r.GetDataBlocks(i)
+		if r.Nodes[nodeID].BlockList[i].Type == Normal {
+			r.Math.RecoverSingleBlockP(dataBlocks, *P, nodeID)
+		} else if r.Nodes[nodeID].BlockList[i].Type == pParity {
+			r.Math.RecoverSingleBlockP(dataBlocks, *P, nodeID)
+		} else if r.Nodes[nodeID].BlockList[i].Type == qParity {
+			r.Math.RecoverSingleBlockQ(dataBlocks, *Q, nodeID)
+		}
+	}
 }
 
 // Need to edit ...
