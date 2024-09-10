@@ -1,8 +1,4 @@
-package math
-
-import (
-	// "fmt"
-)
+package raid6
 
 type RAIDMath struct {
 	generator int
@@ -173,7 +169,7 @@ func (rm *RAIDMath) RecoverPParity(dataBlocks [][]byte, pParity []byte) {
 // Recover Q parity
 func (rm *RAIDMath) RecoverQParity(dataBlocks [][]byte, qParity []byte) {
 	blockSize := len(dataBlocks[0])
-	if qParity == nil {	
+	if qParity == nil {
 		qParity = make([]byte, blockSize)
 	}
 
@@ -218,12 +214,12 @@ func (rm *RAIDMath) RecoverTwoDataBlocks(dataBlocks [][]byte, pParity, qParity [
 		// Now, we need to solve the system for the two unknown blocks
 		// Let D1 be the block at missingIndex1 and D2 be the block at missingIndex2
 
-		x := rm.GfExp(missingIndex1)  // g^missingIndex1
-		y := rm.GfExp(missingIndex2)  // g^missingIndex2
+		x := rm.GfExp(missingIndex1) // g^missingIndex1
+		y := rm.GfExp(missingIndex2) // g^missingIndex2
 
 		// Solve for D2 first
 		// D2 = (Q - g^missingIndex1 * P) / (g^missingIndex2 - g^missingIndex1)
-		diff := rm.GfAdd(y, x)             // g^missingIndex2 - g^missingIndex1
+		diff := rm.GfAdd(y, x) // g^missingIndex2 - g^missingIndex1
 		d2 := rm.GfDiv(rm.GfAdd(q, rm.GfMul(x, p)), diff)
 
 		// Solve for D1
@@ -235,11 +231,11 @@ func (rm *RAIDMath) RecoverTwoDataBlocks(dataBlocks [][]byte, pParity, qParity [
 		dataBlocks[missingIndex2][i] = byte(d2)
 	}
 }
- 
+
 // Recover single lost block and P parity
 func (rm *RAIDMath) RecoverDataBlockAndPParity(dataBlocks [][]byte, pParity, qParity []byte, missingDataIndex int) {
 	blockSize := len(qParity)
-	if pParity == nil {	
+	if pParity == nil {
 		pParity = make([]byte, blockSize)
 	}
 	if dataBlocks[missingDataIndex] == nil {
@@ -266,7 +262,6 @@ func (rm *RAIDMath) RecoverDataBlockAndQParity(dataBlocks [][]byte, pParity, qPa
 	rm.RecoverQParity(dataBlocks, qParity)
 }
 
-
 // Recover P and Q parities
 func (rm *RAIDMath) RecoverPQParities(dataBlocks [][]byte, pParity, qParity []byte) {
 	blockSize := len(dataBlocks[0])
@@ -292,4 +287,3 @@ func (rm *RAIDMath) RecoverPQParities(dataBlocks [][]byte, pParity, qParity []by
 		qParity[i] = byte(q)
 	}
 }
-
