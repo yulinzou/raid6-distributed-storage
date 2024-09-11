@@ -129,11 +129,11 @@ func (r *RAID6) GetDataBlocks(Index int) (dataBlocks []*[]byte, P *[]byte, Q *[]
 		// Ensure the index exists in BlockList
 		if r.Nodes[i].BlockList[Index] == nil || Index >= len(r.Nodes[i].BlockList) {
 			continue // Skip if the index is out of bounds or the block is nil
-		} else if r.Nodes[i].BlockList[Index].Type == Normal {
+		} else if r.Nodes[i].BlockList[Index].BlockID >= 0 {
 			dataBlocks[r.Nodes[i].BlockList[Index].BlockID] = r.Nodes[i].BlockList[Index].Data
-		} else if r.Nodes[i].BlockList[Index].Type == pParity {
+		} else if r.Nodes[i].BlockList[Index].BlockID == -1 {
 			P = r.Nodes[i].BlockList[Index].Data
-		} else if r.Nodes[i].BlockList[Index].Type == qParity {
+		} else if r.Nodes[i].BlockList[Index].BlockID == -2 {
 			Q = r.Nodes[i].BlockList[Index].Data
 		}
 		// fmt.Println("Node ", i, "BlockID ", r.Nodes[i].BlockList[Index].BlockID, "Data ", *r.Nodes[i].BlockList[Index].Data)
@@ -205,13 +205,13 @@ func (r *RAID6) RecoverFile(nodeID int, fileID int) {
 	dataBlocks, P, Q := r.GetDataBlocks(fileID)
 	blockIndex := r.Nodes[nodeID].BlockList[fileID].BlockID
 
-	if r.Nodes[nodeID].BlockList[fileID].Type == Normal {
+	if r.Nodes[nodeID].BlockList[fileID].BlockID >= 0 {
 		r.Math.RecoverSingleBlockP(dataBlocks, P, blockIndex)
 		r.Nodes[nodeID].BlockList[fileID].Data = dataBlocks[blockIndex]
-	} else if r.Nodes[nodeID].BlockList[fileID].Type == pParity {
+	} else if r.Nodes[nodeID].BlockList[fileID].BlockID == -1 {
 		r.Math.RecoverPParity(dataBlocks, P)
 		r.Nodes[nodeID].BlockList[fileID].Data = P
-	} else if r.Nodes[nodeID].BlockList[fileID].Type == qParity {
+	} else if r.Nodes[nodeID].BlockList[fileID].BlockID == -2 {
 		r.Math.RecoverQParity(dataBlocks, Q)
 		r.Nodes[nodeID].BlockList[fileID].Data = Q
 	}

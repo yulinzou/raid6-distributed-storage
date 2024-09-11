@@ -9,7 +9,7 @@ const (
 )
 
 type Block struct {
-    Type     BlockType
+    //Type     BlockType
     FileName string
     Data     *[]byte
     BlockID  int
@@ -24,7 +24,7 @@ type Node struct {
 
 func InitBlock(blockID int, fileName string, data *[]byte, blockType BlockType, blockSize int) *Block {
     return &Block{
-        Type:     blockType,
+        // Type:     blockType,
         FileName: fileName,
         Data:     data,
         BlockID:  blockID, // -1 for P parity, -2 for Q parity
