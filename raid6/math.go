@@ -81,11 +81,10 @@ func (rm *RAIDMath) GfInverse(a int) int {
 	return rm.gfExp[255-rm.gfLog[a]]
 }
 
-
-// Calculate P and Q parities for the data blocks
-func (rm *RAIDMath) CalculateParity(dataBlocks []*[]byte, blockSize int) (pParity []byte, qParity []byte) {
-	pParity = make([]byte, blockSize)
-	qParity = make([]byte, blockSize)
+// Calculate P and Q parities for the data blocks with pParity and qParity as *([]byte)
+func (rm *RAIDMath) CalculateParity(dataBlocks []*[]byte, blockSize int, pParity, qParity *[]byte) {
+	*pParity = make([]byte, blockSize)
+	*qParity = make([]byte, blockSize)
 
 	for i := 0; i < blockSize; i++ {
 		p := 0
@@ -95,24 +94,22 @@ func (rm *RAIDMath) CalculateParity(dataBlocks []*[]byte, blockSize int) (pParit
 			p = rm.GfAdd(p, int((*dataBlocks[j])[i]))
 			q = rm.GfAdd(q, rm.GfMul(rm.GfExp(j), int((*dataBlocks[j])[i]))) // Q uses GF multiplication with generator
 		}
-		pParity[i] = byte(p)
-		qParity[i] = byte(q)
+		(*pParity)[i] = byte(p)
+		(*qParity)[i] = byte(q)
 	}
-
-	return pParity, qParity
 }
 
 // ==== SINGLE BLOCK FAILURE RECOVERY ====
 
 // Recover a single lost block using P parity
-func (rm *RAIDMath) RecoverSingleBlockP(dataBlocks []*[]byte, pParity []byte, missingIndex int) {
-	blockSize := len(pParity)
+func (rm *RAIDMath) RecoverSingleBlockP(dataBlocks []*[]byte, pParity *[]byte, missingIndex int) {
+	blockSize := len(*pParity)
 	if *dataBlocks[missingIndex] == nil {
 		*dataBlocks[missingIndex] = make([]byte, blockSize)
 	}
 
 	for i := 0; i < blockSize; i++ {
-		p := int(pParity[i])
+		p := int((*pParity)[i])
 
 		// XOR all available blocks, excluding the missing one
 		for j := 0; j < len(dataBlocks); j++ {
@@ -127,15 +124,15 @@ func (rm *RAIDMath) RecoverSingleBlockP(dataBlocks []*[]byte, pParity []byte, mi
 }
 
 // Recover a single lost block using Q parity
-func (rm *RAIDMath) RecoverSingleBlockQ(dataBlocks []*[]byte, qParity []byte, missingIndex int) {
-	blockSize := len(qParity)
+func (rm *RAIDMath) RecoverSingleBlockQ(dataBlocks []*[]byte, qParity *[]byte, missingIndex int) {
+	blockSize := len(*qParity)
 
 	// Initialize the missing block if necessary
 	if *dataBlocks[missingIndex] == nil {
 		*dataBlocks[missingIndex] = make([]byte, blockSize)
 	}
 	for i := 0; i < blockSize; i++ {
-		q := int(qParity[i])
+		q := int((*qParity)[i])
 
 		// Subtract the contributions of all available blocks using Galois Field multiplication
 		for j := 0; j < len(dataBlocks); j++ {
@@ -149,11 +146,11 @@ func (rm *RAIDMath) RecoverSingleBlockQ(dataBlocks []*[]byte, qParity []byte, mi
 	}
 }
 
-// Recover P parity
-func (rm *RAIDMath) RecoverPParity(dataBlocks []*[]byte, pParity []byte) {
+// Recover P parity with pParity as *([]byte)
+func (rm *RAIDMath) RecoverPParity(dataBlocks []*[]byte, pParity *[]byte) {
 	blockSize := len(*dataBlocks[0])
-	if pParity == nil {
-		pParity = make([]byte, blockSize)
+	if *pParity == nil {
+		*pParity = make([]byte, blockSize)
 	}
 
 	for i := 0; i < blockSize; i++ {
@@ -163,15 +160,15 @@ func (rm *RAIDMath) RecoverPParity(dataBlocks []*[]byte, pParity []byte) {
 		}
 
 		// Update the original pParity slice in-place
-		pParity[i] = byte(p)
+		(*pParity)[i] = byte(p)
 	}
 }
 
-// Recover Q parity
-func (rm *RAIDMath) RecoverQParity(dataBlocks []*[]byte, qParity []byte) {
+// Recover Q parity with qParity as *([]byte)
+func (rm *RAIDMath) RecoverQParity(dataBlocks []*[]byte, qParity *[]byte) {
 	blockSize := len(*dataBlocks[0])
-	if qParity == nil {
-		qParity = make([]byte, blockSize)
+	if *qParity == nil {
+		*qParity = make([]byte, blockSize)
 	}
 
 	for i := 0; i < blockSize; i++ {
@@ -181,13 +178,13 @@ func (rm *RAIDMath) RecoverQParity(dataBlocks []*[]byte, qParity []byte) {
 		}
 
 		// Update the original qParity slice in-place
-		qParity[i] = byte(q)
+		(*qParity)[i] = byte(q)
 	}
 }
 
-// Recover two lost blocks using P and Q parities
-func (rm *RAIDMath) RecoverTwoDataBlocks(dataBlocks []*[]byte, pParity, qParity []byte, missingIndex1, missingIndex2 int) {
-	blockSize := len(pParity)
+// Recover two lost blocks using P and Q parities with pParity and qParity as *([]byte)
+func (rm *RAIDMath) RecoverTwoDataBlocks(dataBlocks []*[]byte, pParity, qParity *[]byte, missingIndex1, missingIndex2 int) {
+	blockSize := len(*pParity)
 
 	// Initialize missing blocks if necessary
 	if *dataBlocks[missingIndex1] == nil {
@@ -199,8 +196,8 @@ func (rm *RAIDMath) RecoverTwoDataBlocks(dataBlocks []*[]byte, pParity, qParity 
 
 	for i := 0; i < blockSize; i++ {
 		// Get P and Q parities for the current byte
-		p := int(pParity[i])
-		q := int(qParity[i])
+		p := int((*pParity)[i])
+		q := int((*qParity)[i])
 
 		// Calculate the sum of known data blocks for P and Q
 		for j := 0; j < len(dataBlocks); j++ {
@@ -224,43 +221,45 @@ func (rm *RAIDMath) RecoverTwoDataBlocks(dataBlocks []*[]byte, pParity, qParity 
 	}
 }
 
-// Recover single lost block and P parity
-func (rm *RAIDMath) RecoverDataBlockAndPParity(dataBlocks []*[]byte, pParity, qParity []byte, missingDataIndex int) {
-	blockSize := len(qParity)
-	if pParity == nil {
-		pParity = make([]byte, blockSize)
-	}
-	if *dataBlocks[missingDataIndex] == nil {
-		*dataBlocks[missingDataIndex] = make([]byte, blockSize)
-	}
+// // Recover single lost block and P parity with pParity and qParity as *([]byte)
+// func (rm *RAIDMath) RecoverDataBlockAndPParity(dataBlocks []*[]byte, pParity, qParity *[]byte, missingDataIndex int) {
+// 	blockSize := len(*qParity)
+// 	if *pParity == nil {
+// 		*pParity = make([]byte, blockSize)
+// 	}
+// 	if *dataBlocks[missingDataIndex] == nil {
+// 		*dataBlocks[missingDataIndex] = make([]byte, blockSize)
+// 	}
 
-	rm.RecoverSingleBlockQ(dataBlocks, qParity, missingDataIndex)
-	rm.RecoverPParity(dataBlocks, pParity)
-}
+// 	rm.RecoverSingleBlockQ(dataBlocks, qParity, missingDataIndex)
+// 	rm.RecoverPParity(dataBlocks, pParity)
+// }
 
-// Recover single lost block and Q parity
-func (rm *RAIDMath) RecoverDataBlockAndQParity(dataBlocks []*[]byte, pParity, qParity []byte, missingDataIndex int) {
-	blockSize := len(pParity)
-	if qParity == nil {
-		qParity = make([]byte, blockSize)
-	}
-	if *dataBlocks[missingDataIndex] == nil {
-		*dataBlocks[missingDataIndex] = make([]byte, blockSize)
-	}
+// // Recover single lost block and Q parity with pParity and qParity as *([]byte)
+// func (rm *RAIDMath) RecoverDataBlockAndQParity(dataBlocks []*[]byte, pParity, qParity *[]byte, missingDataIndex int) {
+// 	blockSize := len(*pParity)
+// 	if *qParity == nil {
+// 		*qParity = make([]byte, blockSize)
+// 	}
+// 	if *dataBlocks[missingDataIndex] == nil {
+// 		*dataBlocks[missingDataIndex] = make([]byte, blockSize)
+// 	}
 
-	rm.RecoverSingleBlockP(dataBlocks, pParity, missingDataIndex)
+// 	rm.RecoverSingleBlockP(dataBlocks, pParity, missingDataIndex)
 
-	// Recalculate and update Q parity using the recovered data block
-	rm.RecoverQParity(dataBlocks, qParity)
-}
+// 	// Recalculate and update Q parity using the recovered data block
+// 	rm.RecoverQParity(dataBlocks, qParity)
+// }
 
-// Recover P and Q parities
-func (rm *RAIDMath) RecoverPQParities(dataBlocks []*[]byte, pParity, qParity []byte) {
+// Recover P and Q parities with pParity and qParity as *([]byte)
+func (rm *RAIDMath) RecoverPQParities(dataBlocks []*[]byte, pParity, qParity *[]byte) {
 	blockSize := len(*dataBlocks[0])
 
-	if pParity == nil && qParity == nil {
-		pParity = make([]byte, blockSize)
-		qParity = make([]byte, blockSize)
+	if *pParity == nil {
+		*pParity = make([]byte, blockSize)
+	}
+	if *qParity == nil {
+		*qParity = make([]byte, blockSize)
 	}
 
 	// Recalculate both P and Q parities from scratch
@@ -275,7 +274,7 @@ func (rm *RAIDMath) RecoverPQParities(dataBlocks []*[]byte, pParity, qParity []b
 		}
 
 		// Update the P and Q parities in-place
-		pParity[i] = byte(p)
-		qParity[i] = byte(q)
+		(*pParity)[i] = byte(p)
+		(*qParity)[i] = byte(q)
 	}
 }

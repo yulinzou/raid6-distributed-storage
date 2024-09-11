@@ -11,7 +11,7 @@ const (
 type Block struct {
     Type     BlockType
     FileName string
-    Data     []byte
+    Data     *[]byte
     BlockID  int
     Size     int
 }
@@ -22,13 +22,13 @@ type Node struct {
 	status bool // true for active, false for inactive(failure)
 }
 
-func InitBlock(blockID int, fileName string, data []byte, blockType BlockType) *Block {
+func InitBlock(blockID int, fileName string, data *[]byte, blockType BlockType, blockSize int) *Block {
     return &Block{
         Type:     blockType,
         FileName: fileName,
         Data:     data,
-        BlockID:  blockID,
-        Size:     len(data),
+        BlockID:  blockID, // -1 for P parity, -2 for Q parity
+        Size:     blockSize,
     }
 }
 
@@ -46,4 +46,7 @@ func (n *Node) AddBlock(block *Block) {
 
 func (n *Node) GE(){ // 寄
 	n.status = false
+	for _, block := range n.BlockList{
+		*block.Data = nil
+	}
 }
