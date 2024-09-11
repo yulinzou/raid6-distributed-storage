@@ -7,8 +7,35 @@ import (
 	"time"
 )
 
+var (
+	FilePath = "test/files.txt"
+	SFilePath = "test/single_failures.txt"
+	DFilePath = "test/double_failures.txt"
+)
+
+// Generate files for testing
+func GenerateRandomTestData(FileNum, SFailureNum, DFailureNum, MaxFileSize, DiskNum int) (error){
+	
+	err := GenerateRandomFileData(FileNum, MaxFileSize) 
+	if err != nil {
+		return err
+	}
+	err = GenerateSingleFailureCases(SFailureNum, 8)
+	if err != nil {
+		return err
+	}
+	err = GenerateDoubleFailureCases(DFailureNum, 8)
+	if err != nil {
+		return err
+	}
+	
+	return nil
+	
+}
+
+
 // GenerateRandomFileData generates random file names and contents (with readable characters).
-func GenerateRandomFileData(numFiles int, maxSize int) ([]string, []string, error) {
+func GenerateRandomFileData(numFiles int, maxSize int) (error) {
 	rand.Seed(time.Now().UnixNano())
 	fileNames := make([]string, numFiles)
 	fileContents := make([]string, numFiles)
@@ -27,11 +54,16 @@ func GenerateRandomFileData(numFiles int, maxSize int) ([]string, []string, erro
 		fileContents[i] = string(fileContent)
 	}
 
-	return fileNames, fileContents, nil
+	err := StoreFileData(fileNames, fileContents)
+	if err != nil {
+		return err
+	} 
+
+	return nil
 }
 
 // GenerateSingleFailureCases generates single node failure cases for testing.
-func GenerateSingleFailureCases(numFiles int, diskNum int) ([]int, error) {
+func GenerateSingleFailureCases(numFiles int, diskNum int) (error) {
 	rand.Seed(time.Now().UnixNano())
 	failures := make([]int, numFiles)
 
@@ -39,11 +71,16 @@ func GenerateSingleFailureCases(numFiles int, diskNum int) ([]int, error) {
 		failures[i] = rand.Intn(diskNum)
 	}
 
-	return failures, nil
+	err := StoreSingleFailureData(failures)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GenerateDoubleFailureCases generates double node failure cases for testing.
-func GenerateDoubleFailureCases(numFiles int, diskNum int) ([][2]int, error) {
+func GenerateDoubleFailureCases(numFiles int, diskNum int) (error) {
 	rand.Seed(time.Now().UnixNano())
 	failures := make([][2]int, numFiles)
 
@@ -56,7 +93,12 @@ func GenerateDoubleFailureCases(numFiles int, diskNum int) ([][2]int, error) {
 		failures[i] = [2]int{nodeID1, nodeID2}
 	}
 
-	return failures, nil
+	err := StoreDoubleFailureData(failures)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // randomASCIIChar generates a random ASCII character from 'a' to 'z', 'A' to 'Z', or '0' to '9'.
@@ -74,8 +116,8 @@ func randomASCIIChar() byte {
 }
 
 // StoreFileData writes filenames and file contents to "files.txt".
-func StoreFileData(outputFile string, fileNames []string, fileContents []string) error {
-	file, err := os.Create(outputFile)
+func StoreFileData(fileNames []string, fileContents []string) error {
+	file, err := os.Create(FilePath)
 	if err != nil {
 		return err
 	}
@@ -83,7 +125,7 @@ func StoreFileData(outputFile string, fileNames []string, fileContents []string)
 
 	for i, fileName := range fileNames {
 		fileContent := fileContents[i]
-		_, err := file.WriteString(fmt.Sprintf("File: %s\nContent: %s\n\n", fileName, fileContent))
+		_, err := file.WriteString(fmt.Sprintf("%s %s\n", fileName, fileContent))
 		if err != nil {
 			return err
 		}
@@ -93,15 +135,15 @@ func StoreFileData(outputFile string, fileNames []string, fileContents []string)
 }
 
 // StoreSingleFailureData writes single node failure cases to "single_failures.txt".
-func StoreSingleFailureData(outputFile string, failures []int) error {
-	file, err := os.Create(outputFile)
+func StoreSingleFailureData(failures []int) error {
+	file, err := os.Create(SFilePath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	for _, failure := range failures {
-		_, err := file.WriteString(fmt.Sprintf("Failure: Node %d\n", failure))
+		_, err := file.WriteString(fmt.Sprintf("%d\n", failure))
 		if err != nil {
 			return err
 		}
@@ -111,15 +153,15 @@ func StoreSingleFailureData(outputFile string, failures []int) error {
 }
 
 // StoreDoubleFailureData writes double node failure cases to "double_failures.txt".
-func StoreDoubleFailureData(outputFile string, failures [][2]int) error {
-	file, err := os.Create(outputFile)
+func StoreDoubleFailureData(failures [][2]int) error {
+	file, err := os.Create(DFilePath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	for _, failure := range failures {
-		_, err := file.WriteString(fmt.Sprintf("Failure: Node %d, Node %d\n", failure[0], failure[1]))
+		_, err := file.WriteString(fmt.Sprintf("%d %d\n", failure[0], failure[1]))
 		if err != nil {
 			return err
 		}
