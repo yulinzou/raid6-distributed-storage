@@ -2,7 +2,9 @@ package raid6
 
 import (
 	"errors"
-	"fmt"
+	// "fmt"
+
+	// "fmt"
 	"math/rand"
 	"time"
 )
@@ -41,8 +43,8 @@ func (r *RAID6) WriteFile(fileName string, data []byte) error {
 
 	// Assign P and Q parity blocks to the randomly selected indices
 	pIndex := parityIndices[0]
-	qIndex := parityIndices[1]
-	fmt.Println("P parity index:", pIndex, "Q parity index:", qIndex)
+	qIndex := parityIndices[1]	
+	// fmt.Println("P parity index:", pIndex, "Q parity index:", qIndex)
 	
 	// Number of data disks (excluding the parity disks)
 	numDataBlocks := r.DiskNum - 2 // 2 disks are for P and Q parity
@@ -51,9 +53,8 @@ func (r *RAID6) WriteFile(fileName string, data []byte) error {
 	nodeID := 0
 	// Write data blocks into the first (numDataBlocks) nodes
 	for i := 0; i < numDataBlocks; i++ {
-		fmt.Println("Writing block", i, "to node", nodeID)
-		if nodeID == pIndex || nodeID == qIndex {
-			nodeID++ // Skip the P and Q parity nodes
+		for nodeID == pIndex || nodeID == qIndex {
+			nodeID++
 		}
 
 		start := i * blockSize
@@ -64,15 +65,25 @@ func (r *RAID6) WriteFile(fileName string, data []byte) error {
 
 		// Allocate a new slice for the block data
 		blockData := make([]byte, blockSize)
-		copy(blockData, data[start:end]) // Copy data into the new block, with padding if necessary
+		if start > end {
+			// Block already filled with zeros
+			// Pass
+			
+		} else {
+			copy(blockData, data[start:end]) // Copy data into the new block, with padding if necessary
+		}
+		
 
 		// Initialize the block and assign it to the corresponding node
 		block := InitBlock(i, fileName, &blockData, Normal, blockSize)
 		r.Nodes[nodeID].AddBlock(block)
 		nodeID++
 	}
+	r.Nodes[pIndex].AddBlock(InitBlock(-1, fileName, nil, pParity, blockSize))
+	r.Nodes[qIndex].AddBlock(InitBlock(-2, fileName, nil, qParity, blockSize))
 
-	r.calculateParity(fileName, blockSize, pIndex, qIndex)
+	fileID := r.FileNum
+	r.calculateParity(fileID, blockSize, pIndex, qIndex)
 	r.FileNum++
 
 
@@ -83,17 +94,14 @@ func (r *RAID6) WriteFile(fileName string, data []byte) error {
 func (r *RAID6 ) ReadFile(Index int) ([]byte, error) {
 	// Get the data blocks, P parity, and Q parity for the current file (index i)
 	dataBlocks, _, _ := r.GetDataBlocks(Index)
-
-	// Check if the data blocks are nil
-	if dataBlocks[Index] == nil {
-		return nil, errors.New("file data is nil")
-	}
+	
 	if !r.CheckStatus(){
 		return nil, errors.New("node failure")
 	}
 
 	// Concatenate the data blocks to recover the original file data
 	fileData := make([]byte, 0)
+	
 	for i := 0; i < len(dataBlocks); i++ {
 		if dataBlocks[i] != nil{
 			fileData = append(fileData, *dataBlocks[i]...)
@@ -115,25 +123,20 @@ func (r *RAID6) CheckStatus() bool {
 
 // Get data blocks from nodes 
 func (r *RAID6) GetDataBlocks(Index int) (dataBlocks []*[]byte, P *[]byte, Q *[]byte){
-	dataBlocks = make([]*[]byte, 6)
-	j := 0
+	dataBlocks = make([]*[]byte, r.DiskNum - 2)
+
 	for i := 0; i < r.DiskNum; i++ {
 		// Ensure the index exists in BlockList
-		if Index >= len(r.Nodes[i].BlockList) || r.Nodes[i].BlockList[Index] == nil {
-			// fmt.Println("Index out of bounds or block is nil")
+		if r.Nodes[i].BlockList[Index] == nil || Index >= len(r.Nodes[i].BlockList) {
 			continue // Skip if the index is out of bounds or the block is nil
-		}
-		// fetch the no.Index file data blocks 
-		if r.Nodes[i].BlockList[Index].Type == Normal {
-			dataBlocks[j] = r.Nodes[i].BlockList[Index].Data
-			j++
-		} 
-		if r.Nodes[i].BlockList[Index].Type == pParity {
+		} else if r.Nodes[i].BlockList[Index].Type == Normal {
+			dataBlocks[r.Nodes[i].BlockList[Index].BlockID] = r.Nodes[i].BlockList[Index].Data
+		} else if r.Nodes[i].BlockList[Index].Type == pParity {
 			P = r.Nodes[i].BlockList[Index].Data
-		}
-		if r.Nodes[i].BlockList[Index].Type == qParity {
+		} else if r.Nodes[i].BlockList[Index].Type == qParity {
 			Q = r.Nodes[i].BlockList[Index].Data
 		}
+		// fmt.Println("Node ", i, "BlockID ", r.Nodes[i].BlockList[Index].BlockID, "Data ", *r.Nodes[i].BlockList[Index].Data)
 		
 	}
 	return dataBlocks, P, Q
@@ -141,17 +144,25 @@ func (r *RAID6) GetDataBlocks(Index int) (dataBlocks []*[]byte, P *[]byte, Q *[]
 
 
 // calculateParity generates the parity blocks based on the data nodes.
-func (r *RAID6) calculateParity(fileName string, blockSize int, pIndex, qIndex int) {
+func (r *RAID6) calculateParity(fileId int, blockSize int, pIndex, qIndex int) {
 	// should be revised to match the filename
 	parity1 := make([]byte, blockSize)
 	parity2 := make([]byte, blockSize)
 
-	dataBlocks, _, _ := r.GetDataBlocks(0)
+	// fmt.Println("file number: ", fileId)
+	dataBlocks, _, _ := r.GetDataBlocks(fileId)
+
+	// Ensure dataBlocks is non-nil before proceeding
+    if dataBlocks == nil {
+        panic("dataBlocks is nil")
+    }
+
+	// Calculate P and Q parities
 	r.Math.CalculateParity(dataBlocks, blockSize, &parity1, &parity2)
 
 	// Store parity blocks
-	r.Nodes[pIndex].AddBlock(InitBlock(-1, fileName, &parity1, pParity, blockSize))
-	r.Nodes[qIndex].AddBlock(InitBlock(-2, fileName, &parity2, qParity, blockSize))
+	r.Nodes[pIndex].BlockList[r.FileNum].Data = &parity1
+	r.Nodes[qIndex].BlockList[r.FileNum].Data = &parity2
 }
 
 // CheckCorruption verifies if the data blocks or parity are corrupted.
