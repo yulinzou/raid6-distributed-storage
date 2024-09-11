@@ -9,6 +9,60 @@ import (
 	"time"
 )
 
+// Function to verify the integrity of all files after recovery
+func VerifyAllFilesIntegrity(raid *raid6.RAID6) {
+	// Read the original file data from files.txt
+	fileData, err := os.ReadFile(FilePath)
+	if err != nil {
+		fmt.Println("Error reading file data:", err)
+		return
+	}
+	lines := strings.Split(string(fileData), "\n")
+
+	// Variable to track total files and mismatches
+	totalFiles := 0
+	mismatchCount := 0
+
+	// Iterate over all files in files.txt
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, " ", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		fileName := parts[0]
+		originalContent := parts[1]
+
+		// Read the file from the RAID system
+		recoveredContent, err := raid.ReadFile(totalFiles)
+		if err != nil {
+			fmt.Printf("Error reading file %s from RAID: %s\n", fileName, err)
+			mismatchCount++
+			continue
+		}
+
+		// Compare the original content with the recovered content
+		if originalContent != string(recoveredContent) {
+			fmt.Printf("File %s recovery failed, contents do not match\n", fileName)
+			fmt.Println("Original content:", originalContent, len(originalContent))
+			fmt.Println("Recovered content:", string(recoveredContent), len(recoveredContent))
+			mismatchCount++
+		}
+
+		totalFiles++
+	}
+
+	// Final report
+	fmt.Printf("=====================================\n")
+	if mismatchCount == 0 {
+		fmt.Printf("All %d files successfully recovered and are valid.\n", totalFiles)
+	} else {
+		fmt.Printf("%d files out of %d have mismatches or errors in recovery.\n", mismatchCount, totalFiles)
+	}
+}
+
 // Test function to read test data from files and simulate failures
 func RunRecoveryTests(raid *raid6.RAID6) {
 	// Read file names and content from files.txt
@@ -48,6 +102,9 @@ func RunRecoveryTests(raid *raid6.RAID6) {
 
 	// Simulate double node failure cases
 	runDoubleFailureTests(raid)
+
+	// Verify the integrity of all files after recovery
+	VerifyAllFilesIntegrity(raid)
 }
 
 // Run single node failure recovery tests
@@ -125,3 +182,4 @@ func runDoubleFailureTests(raid *raid6.RAID6) {
 	fmt.Printf("Total number of double node failures tested: %d, Average recovery time per test: %s\n", totalTests, totalTime/time.Duration(totalTests))
 	
 }
+

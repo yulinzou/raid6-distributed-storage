@@ -1,10 +1,13 @@
 package raid6
 
 import (
+	"bytes"
 	"errors"
+
 	// "fmt"
 
 	// "fmt"
+
 	"math/rand"
 	"time"
 )
@@ -107,6 +110,7 @@ func (r *RAID6 ) ReadFile(Index int) ([]byte, error) {
 			fileData = append(fileData, *dataBlocks[i]...)
 		}
 	}
+	fileData = bytes.TrimRight(fileData, "\x00") // Remove padding
 
 	return fileData, nil
 }
