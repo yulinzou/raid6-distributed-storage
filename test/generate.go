@@ -20,11 +20,11 @@ func GenerateRandomTestData(FileNum, SFailureNum, DFailureNum, MaxFileSize, Disk
 	if err != nil {
 		return err
 	}
-	err = GenerateSingleFailureCases(SFailureNum, 8)
+	err = GenerateSingleFailureCases(SFailureNum, DiskNum)
 	if err != nil {
 		return err
 	}
-	err = GenerateDoubleFailureCases(DFailureNum, 8)
+	err = GenerateDoubleFailureCases(DFailureNum, DiskNum)
 	if err != nil {
 		return err
 	}
