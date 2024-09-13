@@ -272,6 +272,12 @@ func (r *RAID6) RecoverDoubleNodes(nodeID1, nodeID2 int) {
 	r.Nodes[nodeID2].status = true
 }
 
+
+func (r *RAID6) DetectSingleCorruption(fileID int) {
+	dataBlocks, P, Q := r.GetDataBlocks(fileID)
+	r.Math.RecoverCorruptDisk(dataBlocks, P, Q)
+}
+
 func (r *RAID6) UpdateData(fileName string, newData []byte) error {
 	if len(newData) == 0 {
 		return errors.New("file data is empty")
