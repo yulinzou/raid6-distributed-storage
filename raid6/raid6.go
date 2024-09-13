@@ -273,9 +273,11 @@ func (r *RAID6) RecoverDoubleNodes(nodeID1, nodeID2 int) {
 }
 
 
-func (r *RAID6) DetectSingleCorruption(fileID int) {
-	dataBlocks, P, Q := r.GetDataBlocks(fileID)
-	r.Math.RecoverCorruptDisk(dataBlocks, P, Q)
+func (r *RAID6) DetectSingleCorruption() {
+	for i := 0; i < r.FileNum; i++ {
+		dataBlocks, P, Q := r.GetDataBlocks(i)
+		r.Math.RecoverCorruptDisk(dataBlocks, P, Q)
+	}
 }
 
 func (r *RAID6) UpdateData(fileName string, newData []byte) error {
