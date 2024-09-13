@@ -1,5 +1,8 @@
 package raid6
 
+import (
+	"fmt"
+)
 
 type RAIDMath struct {
 	generator int
@@ -98,6 +101,67 @@ func (rm *RAIDMath) CalculateParity(dataBlocks []*[]byte, blockSize int, pParity
 		(*qParity)[i] = byte(q)
 	}
 }
+
+
+// Identify the corrupt data block using P* and Q*
+func (rm *RAIDMath) identifyCorruptDataDisk(pStar, qStar int) int {
+    // Compute the ratio Q* / P* to find the generator (g^z) of the corrupt disk
+    ratio := rm.GfDiv(qStar, pStar)
+
+    // Iterate over possible disks to match g^z
+    for z := 0; z < 255; z++ { // 255 is the field size for GF(2^8)
+        if ratio == rm.GfExp(z) {
+            return z // z is the index of the corrupt data disk
+        }
+    }
+    return -1 // If no match is found, return -1 indicating corruption could not be identified
+}
+
+// and perform the correct recovery operation
+func (rm *RAIDMath) RecoverCorruptDisk(dataBlocks []*[]byte, pParity, qParity *[]byte) {
+    // Step 1: Recompute P* and Q* syndromes
+    pStar, qStar := rm.recomputeSyndromes(dataBlocks, pParity, qParity)
+    
+    // Step 2: Identify the type of the corrupt disk
+    if pStar != 0 && qStar == 0 {
+        // Case 1: P parity is corrupt
+        fmt.Println("P parity is corrupt, recovering...")
+        rm.RecoverPParity(dataBlocks, pParity)
+    } else if pStar == 0 && qStar != 0 {
+        // Case 2: Q parity is corrupt
+        fmt.Println("Q parity is corrupt, recovering...")
+        rm.RecoverQParity(dataBlocks, qParity)
+    } else if pStar != 0 && qStar != 0 {
+        // Case 3: Data disk is corrupt
+        fmt.Println("Data disk is corrupt, recovering...")
+		corruptDisk := rm.identifyCorruptDataDisk(pStar, qStar)
+        rm.RecoverSingleBlockP(dataBlocks, pParity, corruptDisk)
+    } else {
+        fmt.Println("No corruption detected.")
+    }
+}
+
+// Recompute P* and Q* syndromes
+func (rm *RAIDMath) recomputeSyndromes(dataBlocks []*[]byte, pParity, qParity *[]byte) (int, int) {
+    pStar := 0
+    qStar := 0
+
+    // Recompute P* and Q* by summing the data blocks
+    for i := 0; i < len(*pParity); i++ {
+        pStar = rm.GfAdd(pStar, int((*pParity)[i]))
+        qStar = rm.GfAdd(qStar, int((*qParity)[i]))
+        
+        for j := 0; j < len(dataBlocks); j++ {
+            if dataBlocks[j] != nil {
+                pStar = rm.GfAdd(pStar, int((*dataBlocks[j])[i]))
+                qStar = rm.GfAdd(qStar, rm.GfMul(rm.GfExp(j), int((*dataBlocks[j])[i])))
+            }
+        }
+    }
+
+    return pStar, qStar
+}
+
 
 // ==== SINGLE BLOCK FAILURE RECOVERY ====
 

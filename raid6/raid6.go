@@ -200,6 +200,7 @@ func (r *RAID6) TwoNodesFailure(nodeID1, nodeID2 int) {
 	r.Nodes[nodeID2].GE()
 }
 
+
 // Recover single file with single node failure
 func (r *RAID6) RecoverFile(nodeID int, fileID int) {
 	dataBlocks, P, Q := r.GetDataBlocks(fileID)
