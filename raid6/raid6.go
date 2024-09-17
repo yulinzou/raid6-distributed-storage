@@ -176,6 +176,7 @@ func (r *RAID6) TwoNodesFailure(nodeID1, nodeID2 int) {
 	r.Nodes[nodeID2].GE()
 }
 
+
 // Recover single file with single node failure
 func (r *RAID6) RecoverFile(nodeID int, fileID int) {
 	dataBlocks, P, Q := r.GetDataBlocks(fileID)
@@ -245,6 +246,14 @@ func (r *RAID6) RecoverDoubleNodes(nodeID1, nodeID2 int) {
 	}
 	r.Nodes[nodeID1].status = true
 	r.Nodes[nodeID2].status = true
+}
+
+
+func (r *RAID6) DetectSingleCorruption() {
+	for i := 0; i < r.FileNum; i++ {
+		dataBlocks, P, Q := r.GetDataBlocks(i)
+		r.Math.RecoverCorruptDisk(dataBlocks, P, Q)
+	}
 }
 
 func (r *RAID6) UpdateData(fileName string, newData []byte) error {
