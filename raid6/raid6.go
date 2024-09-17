@@ -6,8 +6,6 @@ import (
 
 	// "fmt"
 
-	// "fmt"
-
 	"math/rand"
 	"time"
 )
@@ -152,6 +150,7 @@ func (r *RAID6) calculateParity(fileId int, blockSize int, pIndex, qIndex int) {
 
 	// fmt.Println("file number: ", fileId)
 	dataBlocks, _, _ := r.GetDataBlocks(fileId)
+	// fmt.Printf("length of datablock: %d length of each block: %d\n", len(dataBlocks), len(*dataBlocks[0]))
 
 	// Ensure dataBlocks is non-nil before proceeding
 	if dataBlocks == nil {
@@ -162,32 +161,9 @@ func (r *RAID6) calculateParity(fileId int, blockSize int, pIndex, qIndex int) {
 	r.Math.CalculateParity(dataBlocks, blockSize, &parity1, &parity2)
 
 	// Store parity blocks
-	r.Nodes[pIndex].BlockList[r.FileNum].Data = &parity1
-	r.Nodes[qIndex].BlockList[r.FileNum].Data = &parity2
+	r.Nodes[pIndex].BlockList[fileId].Data = &parity1
+	r.Nodes[qIndex].BlockList[fileId].Data = &parity2
 }
-
-// CheckCorruption verifies if the data blocks or parity are corrupted.
-// func (r *RAID6) CheckCorruption() bool {
-// 	// XOR all blocks and if it results in 0, then no corruption
-// 	blockData := make([]byte, len(r.Nodes[0].BlockList[0].Data))
-
-// 	for i := 0; i < len(blockData); i++ {
-// 		blockData[i] = r.Nodes[0].BlockList[0].Data[i]
-// 		for j := 1; j < 6; j++ {
-// 			blockData[i] ^= r.Nodes[j].BlockList[0].Data[i]
-// 		}
-// 		blockData[i] ^= r.Nodes[6].BlockList[0].Data[i] // XOR parity
-// 		blockData[i] ^= r.Nodes[7].BlockList[0].Data[i] // XOR second parity
-// 	}
-
-// 	for _, b := range blockData {
-// 		if b != 0 {
-// 			return true // Corruption detected
-// 		}
-// 	}
-
-// 	return false // No corruption
-// }
 
 // Simulate single node's failure
 func (r *RAID6) NodeFailure(nodeID int) {
@@ -278,25 +254,34 @@ func (r *RAID6) UpdateData(fileName string, newData []byte) error {
 
 	for i := 0; i < r.FileNum; i++ {
 		if r.Nodes[0].BlockList[i].FileName == fileName {
-			oldData, _, _ := r.GetDataBlocks(i)
-			blockSize := r.Nodes[0].BlockList[i].Size
-			for j := 0; j < len(oldData); j++ {
-				start := j * blockSize
-				end := start + blockSize
-				if end > len(newData) {
-					end = len(newData)
-				}
+			numDataBlocks := r.DiskNum - 2
+			blockSize := (len(newData) + numDataBlocks - 1) / numDataBlocks
+			k := 0
+			for j := 0; j < r.DiskNum; j++ {
+				if r.Nodes[j].BlockList[i].BlockID == -1 {
 
-				if !bytes.Equal(newData[start:end], *oldData[j]) {
+				} else if r.Nodes[j].BlockList[i].BlockID == -2 {
+
+				} else {
+					start := k * blockSize
+					end := start + blockSize
+					if end > len(newData) {
+						end = len(newData)
+					}
 					blockData := make([]byte, blockSize)
-					copy(blockData, newData[start:end])
+					if start > end {
+					} else {
+						copy(blockData, newData[start:end])
+					}
 					r.Nodes[j].BlockList[i].Data = &blockData
+					k++
 				}
 			}
+
 			for pIndex := 0; pIndex < r.DiskNum; pIndex++ {
 				if r.Nodes[pIndex].BlockList[i].BlockID == -1 {
 					for qIndex := 0; qIndex < r.DiskNum; qIndex++ {
-						if r.Nodes[pIndex].BlockList[i].BlockID == -2 {
+						if r.Nodes[qIndex].BlockList[i].BlockID == -2 {
 							r.calculateParity(i, blockSize, pIndex, qIndex)
 						}
 					}
@@ -307,15 +292,3 @@ func (r *RAID6) UpdateData(fileName string, newData []byte) error {
 	}
 	return nil
 }
-
-// Need to edit ...
-// func (r *RAID6) RecoverData() error {
-// 	// XOR operation across other blocks to recover corrupted data
-// 	if r.CheckCorruption() {
-// 		fmt.Println("Corruption detected, recovering data...")
-// 		// Placeholder logic for recovery, as real implementation will be complex
-// 		return nil
-// 	} else {
-// 		return errors.New("no corruption detected")
-// 	}
-// }

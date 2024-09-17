@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"raid6-distributed-storage/raid6"
 	"strconv"
@@ -46,8 +47,8 @@ func VerifyAllFilesIntegrity(raid *raid6.RAID6) {
 		// Compare the original content with the recovered content
 		if originalContent != string(recoveredContent) {
 			fmt.Printf("File %s recovery failed, contents do not match\n", fileName)
-			fmt.Println("Original content:", originalContent, len(originalContent))
-			fmt.Println("Recovered content:", string(recoveredContent), len(recoveredContent))
+			fmt.Println("Original content: ", originalContent, len(originalContent))
+			fmt.Println("Retrieved content:", string(recoveredContent), len(recoveredContent))
 			mismatchCount++
 		}
 
@@ -57,10 +58,33 @@ func VerifyAllFilesIntegrity(raid *raid6.RAID6) {
 	// Final report
 	fmt.Printf("=====================================\n")
 	if mismatchCount == 0 {
-		fmt.Printf("All %d files successfully recovered and are valid.\n", totalFiles)
+		fmt.Printf("All %d files successfully checked and are valid.\n", totalFiles)
 	} else {
 		fmt.Printf("%d files out of %d have mismatches or errors in recovery.\n", mismatchCount, totalFiles)
 	}
+}
+
+func RunUpdateTests(raid *raid6.RAID6) {
+	fmt.Printf("Update Test begin\n")
+	// Read file names and content from files.txt
+	fileData, err := os.ReadFile(FilePath)
+	if err != nil {
+		fmt.Println("Error reading file data:", err)
+		return
+	}
+	lines := strings.Split(string(fileData), "\n")
+
+	newFileName := strings.SplitN(lines[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(100)], " ", 2)[0]
+	fileSize := rand.Intn(50) + 1
+	fileContent := make([]byte, fileSize)
+	for j := 0; j < fileSize; j++ {
+		fileContent[j] = randomASCIIChar()
+	}
+
+	raid.UpdateData(newFileName, fileContent)
+	updateSingleFile(newFileName, string(fileContent))
+	VerifyAllFilesIntegrity(raid)
+
 }
 
 // Test function to read test data from files and simulate failures
@@ -180,6 +204,5 @@ func runDoubleFailureTests(raid *raid6.RAID6) {
 	fmt.Printf("=====================================\n")
 	fmt.Printf("Double node recovery tests completed in: %s\n", totalTime)
 	fmt.Printf("Total number of double node failures tested: %d, Average recovery time per test: %s\n", totalTests, totalTime/time.Duration(totalTests))
-	
-}
 
+}

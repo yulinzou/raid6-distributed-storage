@@ -1,22 +1,24 @@
 package test
 
 import (
+	"bufio"
 	"fmt"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 )
 
 var (
-	FilePath = "test/files.txt"
+	FilePath  = "test/files.txt"
 	SFilePath = "test/single_failures.txt"
 	DFilePath = "test/double_failures.txt"
 )
 
 // Generate files for testing
-func GenerateRandomTestData(FileNum, SFailureNum, DFailureNum, MaxFileSize, DiskNum int) (error){
-	
-	err := GenerateRandomFileData(FileNum, MaxFileSize) 
+func GenerateRandomTestData(FileNum, SFailureNum, DFailureNum, MaxFileSize, DiskNum int) error {
+
+	err := GenerateRandomFileData(FileNum, MaxFileSize)
 	if err != nil {
 		return err
 	}
@@ -28,14 +30,13 @@ func GenerateRandomTestData(FileNum, SFailureNum, DFailureNum, MaxFileSize, Disk
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
-	
+
 }
 
-
 // GenerateRandomFileData generates random file names and contents (with readable characters).
-func GenerateRandomFileData(numFiles int, maxSize int) (error) {
+func GenerateRandomFileData(numFiles int, maxSize int) error {
 	rand.Seed(time.Now().UnixNano())
 	fileNames := make([]string, numFiles)
 	fileContents := make([]string, numFiles)
@@ -57,13 +58,13 @@ func GenerateRandomFileData(numFiles int, maxSize int) (error) {
 	err := StoreFileData(fileNames, fileContents)
 	if err != nil {
 		return err
-	} 
+	}
 
 	return nil
 }
 
 // GenerateSingleFailureCases generates single node failure cases for testing.
-func GenerateSingleFailureCases(numFiles int, diskNum int) (error) {
+func GenerateSingleFailureCases(numFiles int, diskNum int) error {
 	rand.Seed(time.Now().UnixNano())
 	failures := make([]int, numFiles)
 
@@ -80,7 +81,7 @@ func GenerateSingleFailureCases(numFiles int, diskNum int) (error) {
 }
 
 // GenerateDoubleFailureCases generates double node failure cases for testing.
-func GenerateDoubleFailureCases(numFiles int, diskNum int) (error) {
+func GenerateDoubleFailureCases(numFiles int, diskNum int) error {
 	rand.Seed(time.Now().UnixNano())
 	failures := make([][2]int, numFiles)
 
@@ -165,6 +166,56 @@ func StoreDoubleFailureData(failures [][2]int) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func updateSingleFile(targetFileName, newContent string) error {
+	// Open the file for reading
+	file, err := os.Open(FilePath)
+	if err != nil {
+		return fmt.Errorf("could not open file: %v", err)
+	}
+	defer file.Close()
+
+	var updatedLines []string
+	scanner := bufio.NewScanner(file)
+
+	// Read the file line by line
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.SplitN(line, " ", 2) // Split the line into filename and content
+
+		fileName := parts[0]
+
+		// If the file name matches, update the content
+		if fileName == targetFileName {
+			updatedLines = append(updatedLines, fileName+" "+newContent)
+		} else {
+			updatedLines = append(updatedLines, line) // Keep the original line
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading file: %v", err)
+	}
+
+	// Write the updated lines back to the file
+	outputFile, err := os.Create(FilePath)
+	if err != nil {
+		return fmt.Errorf("could not open file for writing: %v", err)
+	}
+	defer outputFile.Close()
+
+	writer := bufio.NewWriter(outputFile)
+	for _, line := range updatedLines {
+		fmt.Fprintln(writer, line)
+	}
+
+	// Ensure that all the contents are flushed to disk
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("error writing file: %v", err)
 	}
 
 	return nil
