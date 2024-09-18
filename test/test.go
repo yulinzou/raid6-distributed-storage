@@ -65,7 +65,7 @@ func VerifyAllFilesIntegrity(raid *raid6.RAID6) {
 }
 
 func RunUpdateTests(raid *raid6.RAID6) {
-	fmt.Printf("Update Test begin\n")
+	fmt.Printf("+++++++++++++++++++++\nUpdate Test begin\n")
 	// Read file names and content from files.txt
 	fileData, err := os.ReadFile(FilePath)
 	if err != nil {
@@ -83,6 +83,7 @@ func RunUpdateTests(raid *raid6.RAID6) {
 
 	raid.UpdateData(newFileName, fileContent)
 	updateSingleFile(newFileName, string(fileContent))
+	fmt.Printf("Random Update File: %s\n", newFileName)
 	VerifyAllFilesIntegrity(raid)
 
 }
