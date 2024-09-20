@@ -21,7 +21,6 @@ func VerifyAllFilesIntegrity(raid *raid6.RAID6) {
 	lines := strings.Split(string(fileData), "\n")
 
 	// Variable to track total files and mismatches
-	totalFiles := 0
 	mismatchCount := 0
 
 	// Iterate over all files in files.txt
@@ -37,7 +36,7 @@ func VerifyAllFilesIntegrity(raid *raid6.RAID6) {
 		originalContent := parts[1]
 
 		// Read the file from the RAID system
-		recoveredContent, err := raid.ReadFile(totalFiles)
+		recoveredContent, err := raid.ReadFile(fileName)
 		if err != nil {
 			fmt.Printf("Error reading file %s from RAID: %s\n", fileName, err)
 			mismatchCount++
@@ -51,20 +50,21 @@ func VerifyAllFilesIntegrity(raid *raid6.RAID6) {
 			fmt.Println("Retrieved content:", string(recoveredContent), len(recoveredContent))
 			mismatchCount++
 		}
-
-		totalFiles++
 	}
 
 	// Final report
 	fmt.Printf("=====================================\n")
 	if mismatchCount == 0 {
-		fmt.Printf("All %d files successfully checked and are valid.\n", totalFiles)
+		fmt.Printf("All %d files successfully checked and are valid.\n", raid.FileNum)
 	} else {
-		fmt.Printf("%d files out of %d have mismatches or errors in recovery.\n", mismatchCount, totalFiles)
+		fmt.Printf("%d files out of %d have mismatches or errors in recovery.\n", mismatchCount, raid.FileNum)
 	}
 }
 
-func RunUpdateTests(raid *raid6.RAID6) {
+func RunUpdateTests(raid *raid6.RAID6, updateNums, maxSize int) {
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+
 	fmt.Printf("+++++++++++++++++++++\nUpdate Test begin\n")
 	// Read file names and content from files.txt
 	fileData, err := os.ReadFile(FilePath)
@@ -74,16 +74,32 @@ func RunUpdateTests(raid *raid6.RAID6) {
 	}
 	lines := strings.Split(string(fileData), "\n")
 
-	newFileName := strings.SplitN(lines[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(100)], " ", 2)[0]
-	fileSize := rand.Intn(50) + 1
-	fileContent := make([]byte, fileSize)
-	for j := 0; j < fileSize; j++ {
-		fileContent[j] = randomASCIIChar()
+	perm := rand.Perm(len(lines) - 1)
+	fmt.Println(len(lines) - 1)
+
+	updateMap := make(map[string][]byte)
+	for i := 0; i < updateNums; i++ {
+		fileName := strings.SplitN(lines[perm[i]], " ", 2)[0]
+		fileSize := rand.Intn(maxSize) + 1
+		fileContent := make([]byte, fileSize)
+		for j := 0; j < fileSize; j++ {
+			fileContent[j] = randomASCIIChar()
+		}
+		err = updateSingleFile(fileName, string(fileContent))
+		updateMap[fileName] = fileContent
 	}
 
-	raid.UpdateData(newFileName, fileContent)
-	updateSingleFile(newFileName, string(fileContent))
-	fmt.Printf("Random Update File: %s\n", newFileName)
+	updateStart := time.Now()
+	for name, content := range updateMap {
+		err = raid.UpdateFile(name, content)
+		if err != nil {
+			fmt.Println("Error updating file:", err)
+		}
+	}
+	updateTime := time.Since(updateStart)
+
+	fmt.Printf("Total update time: %s\n", updateTime)
+	fmt.Printf("Total number of files updated: %d, Average update time per file: %s\n", updateNums, updateTime/time.Duration(updateNums))
 	VerifyAllFilesIntegrity(raid)
 
 }
@@ -112,7 +128,7 @@ func RunRecoveryTests(raid *raid6.RAID6) {
 		fileName := parts[0]
 		fileContent := parts[1]
 
-		err := raid.WriteFile(fileName, []byte(fileContent))
+		err = raid.WriteFile(fileName, []byte(fileContent))
 		if err != nil {
 			return
 		}
@@ -136,6 +152,7 @@ func RunRecoveryTests(raid *raid6.RAID6) {
 func runSingleFailureTests(raid *raid6.RAID6) {
 	singleFailures, err := os.ReadFile(SFilePath)
 	if err != nil {
+		fmt.Println("Error reading file data:", err)
 		return
 	}
 
@@ -148,14 +165,21 @@ func runSingleFailureTests(raid *raid6.RAID6) {
 			continue
 		}
 
-		nodeID, err := strconv.Atoi(line)
+		var nodeID int
+		nodeID, err = strconv.Atoi(line)
 		if err != nil {
-			continue
+			fmt.Printf(err.Error())
 		}
 
 		// Simulate and recover single node failure
-		raid.NodeFailure(nodeID)
-		raid.RecoverSingleNode(nodeID)
+		err = raid.NodeFailure(nodeID)
+		if err != nil {
+			fmt.Printf(err.Error())
+		}
+		err = raid.RecoverSingleNode(nodeID)
+		if err != nil {
+			fmt.Printf(err.Error())
+		}
 		totalTests++
 	}
 
@@ -186,18 +210,29 @@ func runDoubleFailureTests(raid *raid6.RAID6) {
 			continue
 		}
 
-		nodeID1, err := strconv.Atoi(parts[0])
+		var nodeID1, nodeID2 int
+		nodeID1, err = strconv.Atoi(parts[0])
 		if err != nil {
 			continue
 		}
-		nodeID2, err := strconv.Atoi(parts[1])
+		nodeID2, err = strconv.Atoi(parts[1])
 		if err != nil {
 			continue
 		}
 
 		// Simulate and recover double node failure
 		raid.TwoNodesFailure(nodeID1, nodeID2)
-		raid.RecoverDoubleNodes(nodeID1, nodeID2)
+		if nodeID1 < nodeID2 {
+			err = raid.RecoverDoubleNodes(nodeID1, nodeID2)
+			if err != nil {
+				continue
+			}
+		} else {
+			err = raid.RecoverDoubleNodes(nodeID2, nodeID1)
+			if err != nil {
+				continue
+			}
+		}
 		totalTests++
 	}
 

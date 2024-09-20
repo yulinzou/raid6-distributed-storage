@@ -27,3 +27,7 @@
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Intermediate result of experiments
+*.txt
+*.bin

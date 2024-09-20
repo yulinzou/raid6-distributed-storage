@@ -43,7 +43,7 @@ func GenerateRandomFileData(numFiles int, maxSize int) error {
 
 	for i := 0; i < numFiles; i++ {
 		// Generate random file name
-		fileName := fmt.Sprintf("file_%d.txt", i)
+		fileName := fmt.Sprintf("file%d", i)
 		fileNames[i] = fileName
 
 		// Generate random file content using readable ASCII characters (letters and digits)

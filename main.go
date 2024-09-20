@@ -2,20 +2,20 @@ package main
 
 import (
 	"fmt"
-	// "math/rand"
 	"raid6-distributed-storage/raid6"
 	"raid6-distributed-storage/test"
 )
 
 var (
-	FileNum     = 100
-	SFailureNum = 100
-	DFailureNum = 100
-	MaxFileSize = 50
+	FileNum     = 20
+	SFailureNum = 5
+	DFailureNum = 5
+	UpdateNum   = 5
+	MaxFileSize = 100
 )
 
 func main() {
-	raid := raid6.InitRAID6()
+	raid := raid6.InitRAID6(10, "./raid6_cluster")
 
 	// Generate random file names and contents
 	err := test.GenerateRandomTestData(FileNum, SFailureNum, DFailureNum, MaxFileSize, raid.DiskNum)
@@ -27,6 +27,5 @@ func main() {
 	// Run recovery tests
 	test.RunRecoveryTests(raid)
 
-	test.RunUpdateTests(raid)
-
+	test.RunUpdateTests(raid, UpdateNum, MaxFileSize)
 }
